@@ -49,8 +49,10 @@ slam::SlamBase::SlamBase(
 */
 void slam::SlamBase::genericCallback(const nav_msgs::Odometry::ConstPtr& odom_msg)
 {
+  cout << "genericCallback called --> odometry message was received!\n";
   if (!params_.enable)
   {
+    cout << "slam is NOT enabled!\n";
     // The slam is not enabled, re-publish the input odometry
 
     // Get the current odometry
@@ -61,6 +63,7 @@ void slam::SlamBase::genericCallback(const nav_msgs::Odometry::ConstPtr& odom_ms
   }
   else
   {
+    cout << "slam is enabled!\n";
     // Get the current odometry
     tf::Transform current_odom_robot = Tools::odomTotf(*odom_msg);
 
@@ -139,7 +142,8 @@ void slam::SlamBase::msgsCallback(const nav_msgs::Odometry::ConstPtr& odom_msg,
                                   const sensor_msgs::CameraInfoConstPtr& r_info_msg,
                                   const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 {
-  // Get the cloud
+ cout << "in SlamBase::msgsCallback --> synchronized odometry and image message were received!\n"; 
+ // Get the cloud
   PointCloudRGB::Ptr pcl_cloud(new PointCloudRGB);
   fromROSMsg(*cloud_msg, *pcl_cloud);
   copyPointCloud(*pcl_cloud, pcl_cloud_);
@@ -164,6 +168,7 @@ void slam::SlamBase::msgsCallback(const nav_msgs::Odometry::ConstPtr& odom_msg,
                                   const sensor_msgs::CameraInfoConstPtr& l_info_msg,
                                   const sensor_msgs::CameraInfoConstPtr& r_info_msg)
 {
+  cout << "in SlamBase::msgsCallback --> synchronized odometry and image message were received!\n";
   // Get the current timestamp
   ros::Time timestamp = l_img_msg->header.stamp;
 
@@ -348,11 +353,13 @@ bool slam::SlamBase::getOdom2CameraTf(nav_msgs::Odometry odom_msg,
                                       sensor_msgs::Image img_msg,
                                       tf::StampedTransform &transform)
 {
+  cout << "in SlamBase::getOdom2CameraTf()\n";
   // Init the transform
   transform.setIdentity();
 
   try
   {
+    cout << "looking up transform...\n";
     // Extract the transform
     tf_listener_.lookupTransform(odom_msg.child_frame_id,
                                  img_msg.header.frame_id,
@@ -364,6 +371,7 @@ bool slam::SlamBase::getOdom2CameraTf(nav_msgs::Odometry odom_msg,
     ROS_WARN("%s", ex.what());
     return false;
   }
+  cout << "found valid transform between odometry frame and camera frame!\n";
   return true;
 }
 
@@ -372,6 +380,7 @@ bool slam::SlamBase::getOdom2CameraTf(nav_msgs::Odometry odom_msg,
   */
 void slam::SlamBase::publish(nav_msgs::Odometry odom_msg, tf::Transform odom)
 {
+  cout << "in SlamBase::publish()\n";
   // Publish the odometry message
   pose_.publish(odom_msg, odom);
 
@@ -394,8 +403,11 @@ void slam::SlamBase::publish(nav_msgs::Odometry odom_msg, tf::Transform odom)
   */
 void slam::SlamBase::createCloudsDir()
 {
-  if (fs::is_directory(params_.clouds_dir))
+  cout << "in SlamBase::createCloudsDir()\n";
+  if (fs::is_directory(params_.clouds_dir)){
     fs::remove_all(params_.clouds_dir);
+    cout << "reset cloud directory\n";
+  }
   fs::path dir(params_.clouds_dir);
   if (!fs::create_directory(dir))
     ROS_ERROR("[Localization:] ERROR -> Impossible to create the clouds directory.");
@@ -406,6 +418,7 @@ void slam::SlamBase::createCloudsDir()
   */
 void slam::SlamBase::readParameters()
 {
+  cout << "in SlamBase::readParameters()\n";
   Params params;
   slam::Pose::Params pose_params;
   slam::Graph::Params graph_params;
@@ -424,6 +437,7 @@ void slam::SlamBase::readParameters()
   // Enable
   nh_private_.param("enable", params.enable, true);
 
+  cout << "setting topic, motion, log, loop closure, G2O, and graph params...\n";
   // Topic parameters
   string odom_topic, left_topic, right_topic, left_info_topic, right_info_topic, cloud_topic, correction_topic;
   nh_private_.param("pose_frame_id",              pose_params.pose_frame_id,        string("/map"));
@@ -444,7 +458,7 @@ void slam::SlamBase::readParameters()
 
   // Log parameters
   nh_private_.param("save_images",                lc_params.save_images,            false);
-  nh_private_.param("save_clouds",                params.save_clouds,               false);
+  nh_private_.param("save_clouds",                params.save_clouds,               true);
 
   // Loop closure parameters
   nh_private_.param("desc_type",                  lc_params.desc_type,              string("SIFT"));
@@ -473,6 +487,8 @@ void slam::SlamBase::readParameters()
   graph_.setParams(graph_params);
   lc_.setParams(lc_params);
 
+  cout << "set all parameters!\n";
+
   // Topics subscriptions
   image_transport::ImageTransport it(nh_);
   odom_sub_       .subscribe(nh_, odom_topic,       25);
@@ -481,9 +497,12 @@ void slam::SlamBase::readParameters()
   left_info_sub_  .subscribe(nh_, left_info_topic,  3);
   right_info_sub_ .subscribe(nh_, right_info_topic, 3);
 
-  if (params_.save_clouds)
+  cout << "set topic subscriptions\n";
+  cout << "params_.save_clouds = " << params_.save_clouds << "\n";
+  if (params_.save_clouds){
+    cout << "subscribing to cloud_topic\n";
     cloud_sub_.subscribe(nh_, cloud_topic, 5);
-
+  }
 }
 
 
@@ -491,6 +510,7 @@ void slam::SlamBase::readParameters()
   */
 void slam::SlamBase::init()
 {
+  cout << "In SlamBase::init()\n";
   // Setup the signal handler
   struct sigaction sigIntHandler;
   sigIntHandler.sa_handler = stopHandler;
@@ -502,6 +522,7 @@ void slam::SlamBase::init()
   pose_.advertisePoseMsg(nh_private_);
   graph_.advertiseMsgs(nh_private_);
   graph_.subscribeMsgs(nh_);
+  cout << "Advertised class messages\n";
 
   // Generic subscriber
   generic_sub_ = nh_.subscribe<nav_msgs::Odometry>(params_.odom_topic, 1, &SlamBase::genericCallback, this);
@@ -509,6 +530,7 @@ void slam::SlamBase::init()
   // Enable the slam?
   if (params_.enable)
   {
+    cout << "Enabled slam\n";
     // Init
     first_iter_ = true;
     odom2camera_.setIdentity();
@@ -521,10 +543,12 @@ void slam::SlamBase::init()
 
     // Advertise the info message
     info_pub_ = nh_private_.advertise<stereo_slam::SlamInfo>("info", 1);
-
+    cout << "Initialized haloc, graph, and info message\n";
+    cout << "params_.save_clouds = " << params_.save_clouds << "\n";
     // Cloud callback
     if (params_.save_clouds)
     {
+      cout << "params_.save_clouds is true: got cloud callback\n";
       // Create the directory for clouds
       createCloudsDir();
 
@@ -542,6 +566,7 @@ void slam::SlamBase::init()
     }
     else
     {
+      cout << "params_.save_clouds is false: got NO cloud callback\n";
       // Callback without clouds
       sync_no_cloud_.reset(new SyncNoCloud(PolicyNoCloud(3),
                                       odom_sub_,

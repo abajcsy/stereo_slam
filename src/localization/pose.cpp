@@ -39,6 +39,7 @@ tf::Transform slam::Pose::correctPose(tf::Transform pose,
   */
 void slam::Pose::publish(nav_msgs::Odometry odom_msg, tf::Transform pose)
 {
+  cout << "got to Pose::publish() and broadcasted transform\n";
   // Broadcast the transformation
   frame_to_child_.sendTransform(tf::StampedTransform(pose,
                                                      odom_msg.header.stamp,

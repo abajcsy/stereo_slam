@@ -22,6 +22,7 @@ slam::Graph::Graph()
   */
 void slam::Graph::advertiseMsgs(ros::NodeHandle nh)
 {
+  cout << "advertising graph messages...\n";
   // Advertise
   vertex_pub_ = nh.advertise<stereo_slam::SlamVertex>("vertex", 2);
   edge_pub_ = nh.advertise<stereo_slam::SlamEdge>("edge", 2);

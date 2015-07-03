@@ -60,7 +60,7 @@ public:
     Params () {
       enable                      = true;
       min_displacement            = 0.2;
-      save_clouds                 = false;
+      save_clouds                 = true;
       clouds_dir                  = "";
       odom_topic                  = "";
       min_neighbor                = 10;
