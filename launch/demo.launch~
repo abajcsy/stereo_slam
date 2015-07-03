@@ -1,0 +1,97 @@
+<launch>
+
+	<arg name="bagfile" default="/home/humanoid/ros_workspace/src/stereo_slam/data/room.bag"/>
+
+	<!-- Setup the camera -->
+	<arg name="camera" default="stereo"/>
+	<param name="/use_sim_time" value="true"/>
+
+	<!-- Play the bagfile -->
+	<node pkg="rosbag" ns="$(arg camera)" type="play" name="rosbag" args="--clock $(arg bagfile)">
+          <remap from="/left/image_raw" to="/$(arg camera)/left/image_raw"/>
+          <remap from="/right/image_raw" to="/$(arg camera)/right/image_raw"/>
+          <remap from="/left/camera_info" to="/$(arg camera)/left/camera_info"/>
+          <remap from="/right/camera_info" to="/$(arg camera)/right/camera_info"/>
+        </node>
+
+	<!-- Publish static transform nodes -->
+	<!--<node pkg="tf" type="static_transform_publisher" name="tf_map_bot_broadcaster" args="1 0 0 0 0 0 1 map robot 100" />-->
+	<node pkg="tf" type="static_transform_publisher" name="tf_bot_left_broadcaster" args="0 0 0 0 0 0 1 robot left 100" />
+	<node pkg="tf" type="static_transform_publisher" name="tf_bot_right_broadcaster" args="0.1 0 0 0 0 0 1 robot right 100" />
+
+	<!-- Run the stereo image proc -->
+	<group ns="$(arg camera)">
+		<node pkg="stereo_image_proc" type="stereo_image_proc" name="stereo_image_proc" args="_approximate_sync:=True _prefilter_cap:=56 _min_disparity:=-100 _disparity_range:=48 _texture_threshold:=2600 _speckle_size:=0 _speckle_range:=10" />
+	</group>
+
+	<!-- Run the visual odometry: You can choose between viso2 and fovis -->
+	<node pkg="viso2_ros" type="stereo_odometer" name="stereo_odometer" output="screen">
+		<remap from="stereo" to="$(arg camera)"/>
+		<remap from="image" to="image_rect_color"/>
+		<param name="base_link_frame_id" value="left"/>
+		<param name="odom_frame_id" value="map"/>
+		<param name="approximate_sync" value="True"/>
+	</node>
+	<!--node pkg="fovis_ros" type="stereo_odometer" name="fovis">
+		<remap from="stereo" to="$(arg camera)"/>
+		<remap from="image" to="image_rect_color"/>
+		<param name="base_link_frame_id" value="$(arg camera)"/>
+	</node-->
+
+	<!-- Stereo SLAM -->
+	<node pkg="stereo_slam" type="localization" name="slam" output="screen">
+
+		<!-- Working directory -->
+		<param name="work_dir" value="/home/humanoid/ros_workspace/src/stereo_slam/data" />
+
+		<!-- Topic parameters -->
+		<param name="odom_topic" value="stereo_odometer/odometry"/>
+		<param name="left_topic" value="$(arg camera)/left/image_rect_color"/>
+		<param name="right_topic" value="$(arg camera)/right/image_rect_color"/>
+		<param name="left_info_topic" value="$(arg camera)/left/camera_info"/>
+		<param name="right_info_topic" value="$(arg camera)/right/camera_info"/>
+
+		<!-- Min displacement between graph vertices (in meters) -->
+		<param name="min_displacement" value="0.25"/>
+
+		<!-- Descriptor type: SIFT or SURF -->
+		<param name="desc_type" value="SIFT"/>
+
+		<!-- Can be "CROSSCHECK" or "RATIO" -->
+		<param name="desc_matching_type" value="CROSSCHECK"/>
+
+		<!-- Descriptor threshold for crosscheck matching (typically between 0.7-0.9) or ratio for ratio matching (typically between 0.6-0.8).  -->
+		<param name="desc_thresh_ratio" value="0.88" />
+
+		<!-- Minimum number of neighbors that will be skipped for the loop closure (tipically between 5-20, but depends on the frame rate) -->
+		<param name="min_neighbor" value="10" />
+
+		<!-- Get the n first candidates of the hash matching (tipically between 1-5) -->
+		<param name="n_candidates" value="5" />
+
+		<!-- Minimun number of descriptor matches to consider a matching as possible loop closure (>8) -->
+		<param name="min_matches" value="30" />
+
+		<!-- Minimum number of inliers to consider a matching as possible loop closure (>8) -->
+		<param name="min_inliers" value="15" />
+
+		<!-- Set to 0 for LinearSlam Solver with gauss-newton. Set to 1 for LinearSlam Solver with Levenberg -->
+		<param name="g2o_algorithm" value="0" />
+
+		<!-- Maximum number of iteration for the g2o algorithm -->
+		<param name="g2o_opt_max_iter" value="10" />
+	</node>
+
+	<!-- Pointcloud collector -->
+	<!--node pkg="stereo_slam" type="viewer" name="viewer" output="screen">
+
+		<param name="work_dir" value="/home/humanoid/ros_workspace/src/stereo_slam/data" />
+
+		<param name="graph_topic" value="/slam/graph"/>
+		<param name="cloud_topic" value="/points2"/>
+
+		<rosparam file="$(find stereo_slam)/etc/reconstruction.yaml" />
+
+	</node-->
+
+</launch>

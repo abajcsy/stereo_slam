@@ -1,0 +1,9 @@
+digraph G {
+"map" -> "robot"[label="Broadcaster: /tf_map_bot_broadcaster\nAverage rate: 10.176 Hz\nMost recent transform: 1435868029.408 ( -0.096 sec old)\nBuffer length: 4.913 sec\n"];
+"robot" -> "right"[label="Broadcaster: /tf_bot_right_broadcaster\nAverage rate: 10.187 Hz\nMost recent transform: 1435868029.341 ( -0.029 sec old)\nBuffer length: 4.810 sec\n"];
+"robot" -> "left"[label="Broadcaster: /tf_bot_left_broadcaster\nAverage rate: 10.187 Hz\nMost recent transform: 1435868029.371 ( -0.060 sec old)\nBuffer length: 4.810 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1435868029.312"[ shape=plaintext ] ;
+ }->"map";
+}
